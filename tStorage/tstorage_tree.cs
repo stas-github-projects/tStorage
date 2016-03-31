@@ -79,6 +79,7 @@ namespace tStorage
         private static int g_keyitem_index = 0;
         private static int sEntry_length = 0;
 
+        private static bool bool_addentry_result = false;
         private static string sKey = "";
         private static int wEndIndex = 0;
         private static NodeEntry oItem;
@@ -142,10 +143,10 @@ namespace tStorage
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void AddEntry(string sEntry, int wBegIndex, ref byte[] data)
+            public bool AddEntry(string sEntry, int wBegIndex, ref byte[] data)
             {
                 if (sEntry_length == 0) //length cashing
-                { sEntry_length = sEntry.Length; }
+                { sEntry_length = sEntry.Length; bool_addentry_result = false; }
 
                 if (wBegIndex < sEntry_length)
                 {
@@ -177,14 +178,17 @@ namespace tStorage
                             CKeyItem keyitem = new CKeyItem();
                             lst_keyitems.Add(keyitem);
                             this.Add(sKey, oItem);
+                            bool_addentry_result = true;
                         }
                         // Now add the rest to the new item's children
-                        oItem.Children.AddEntry(sEntry, wEndIndex + i_delim_length, ref data);
-                        return;
+                        bool_addentry_result = oItem.Children.AddEntry(sEntry, wEndIndex + i_delim_length, ref data);
+                        //return;
                     }
                 }
                 else
-                { sEntry_length = 0; }
+                { sEntry_length = 0; return bool_addentry_result; }
+                //
+                return bool_addentry_result;
             }
         }
 

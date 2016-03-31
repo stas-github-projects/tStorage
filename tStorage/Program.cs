@@ -17,10 +17,10 @@ namespace tStorage
 
             tStorage tstorage = new tStorage();
             
-            tstorage.Open("test1");     
+            tstorage.Open("test1");  
 
             s.Start(); //start timer
-            
+
             tstorage.Create("root/key1");
 
             s.Stop(); //stop timer
