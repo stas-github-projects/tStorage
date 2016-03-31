@@ -151,7 +151,7 @@ namespace tStorage
                 {
                     //string sKey;
                     //int wEndIndex;
-                    sKey=new string(sEntry.Ta)
+                    //sKey=new string(sEntry.Ta)
                     wEndIndex = IndexOfEx(sEntry, wBegIndex); //sEntry.IndexOf("/", wBegIndex); --faster replacement
                     if (wEndIndex == -1)
                     {

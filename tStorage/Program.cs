@@ -10,22 +10,21 @@ namespace tStorage
     {
         static void Main(string[] args)
         {
-            GC.Collect(2, GCCollectionMode.Optimized);
+            GC.Collect(0, GCCollectionMode.Optimized); //force gc on 0 level & gcserver = enbled in 'app.config'
 
             Stopwatch s = new Stopwatch();
             //s.Start();
 
             tStorage tstorage = new tStorage();
             
-            tstorage.Open("test1");
+            tstorage.Open("test1");     
 
+            s.Start(); //start timer
             
+            tstorage.Create("root/key1");
 
-            s.Start();
-            for (int i = 0; i < 1000000; i++)
-            { tstorage.Create("root/key"+i); }
+            s.Stop(); //stop timer
 
-            s.Stop();
             Console.WriteLine("msec = {0} // ticks = {1}",s.ElapsedMilliseconds,s.ElapsedTicks);
             Console.ReadLine();
         }

@@ -74,6 +74,31 @@ namespace tStorage
             return bool_ret;
         }
 
+        //
+        // OTHER SERVICES
+        //
+
+        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        [System.Runtime.InteropServices.ComVisible(false)]
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
+        }
+
+
+        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        [System.Runtime.InteropServices.ComVisible(false)]
+        public override string ToString()
+        {
+            return base.ToString();
+        }
+
+        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        [System.Runtime.InteropServices.ComVisible(false)]
+        public override bool Equals(object obj)
+        {
+            return base.Equals(obj);
+        }
 
     }
 }
