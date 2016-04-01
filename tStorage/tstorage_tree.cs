@@ -20,6 +20,15 @@ namespace tStorage
         internal static void init(char[] _delim, int _max_length, int _max_levels_depth)
         { str_delim = _delim; i_delim_length = str_delim.Length; max_key_length = _max_length; max_levels_depth = _max_levels_depth; }
 
+        internal static class CKeysToSave
+        {
+            internal static List<NodeEntry> lst_items = new List<NodeEntry>(10);
+            internal static void Add(NodeEntry _key)
+            { lst_items.Add(_key); }
+            internal static void Clear()
+            { lst_items.Clear(); }
+        }
+
         public class CKeyItem
         {
             //TO-DO
@@ -178,6 +187,7 @@ namespace tStorage
                             CKeyItem keyitem = new CKeyItem();
                             lst_keyitems.Add(keyitem);
                             this.Add(sKey, oItem);
+                            CKeysToSave.Add(oItem); //add to save list
                             bool_addentry_result = true;
                         }
                         // Now add the rest to the new item's children

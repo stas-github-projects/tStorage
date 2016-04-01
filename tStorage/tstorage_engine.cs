@@ -43,6 +43,7 @@ namespace tStorage
             _GLOBALS.fixed_length = fixed_length;
             _GLOBALS.data_type = tStorage_service.returnTypeAndRawByteArray(ref data, fixed_length, out _GLOBALS.data);
 
+            //search & add in tree (in memory)
             bool_ret = _TREE.AddEntry(key, 0, ref _GLOBALS.data);
 
             return bool_ret;
@@ -104,6 +105,8 @@ namespace tStorage
         public bool Commit()
         {
             bool bool_ret = true;
+
+
 
             return bool_ret;
         }
