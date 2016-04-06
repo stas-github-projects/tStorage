@@ -21,7 +21,9 @@ namespace tStorage
 
             s.Start(); //start timer
 
-            tstorage.Create("root/key1");
+            tstorage.Create("root/key1","test");
+            tstorage.Create("root/key2");
+            tstorage.Commit();
 
             s.Stop(); //stop timer
 

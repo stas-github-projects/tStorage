@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -10,11 +10,13 @@ namespace tStorage
     {
         tStorage.CGlobals _GLOBALS = new CGlobals();
         tstorage_tree.NodeEntryCollection _TREE = new tstorage_tree.NodeEntryCollection();
+        CLevelsPage _LEVELS;// = new CLevelsPage()
 
         public tStorage()
         {
             //init tree
             tstorage_tree.init(_GLOBALS.storage_keys_delim, _GLOBALS.storage_key_max_length, _GLOBALS.storage_max_levels_depth);
+            _LEVELS = new CLevelsPage(_GLOBALS);
         }
 
         /// <summary>
@@ -23,6 +25,82 @@ namespace tStorage
         public bool Open(string storage_name, string parameters = "")
         {
             bool bool_ret = true;
+
+            _GLOBALS.storage_name = storage_name + ".tst";
+            FileInfo finfo = new FileInfo(_GLOBALS.storage_name);
+            if (!finfo.Exists) //create
+            {
+                bool_ret = create_storage();
+                if (!bool_ret) { _GLOBALS.storage = null; _GLOBALS.storage_open = false; _GLOBALS.storage_length = 0; }
+            }
+            else //open
+            {
+                bool_ret = open_storage();
+                if (!bool_ret) { _GLOBALS.storage = null; _GLOBALS.storage_open = false; _GLOBALS.storage_length = 0; }
+            }
+
+            return bool_ret;
+        }
+
+        private bool create_storage()
+        {
+            bool bool_ret = true;
+
+            _GLOBALS.storage = new FileStream(_GLOBALS.storage_name, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.ReadWrite, 1024 * 1024, FileOptions.Asynchronous);
+            if (_GLOBALS.storage == null) { return false; }
+
+            //defaults
+            int ibuflen = 4 + 8 + 4; //version + levels_page_pos + levels_page_length
+            int ipos = 0;
+            byte[] b_buffer = new byte[ibuflen];
+
+            _GLOBALS.storage_length = ibuflen;
+
+            _LEVELS.l_levels_page_pos = ibuflen;
+            _LEVELS.i_levels_page_len = 0;
+
+            b_buffer.InsertBytes(_GLOBALS.storage_version, ipos); ipos += 4;
+            b_buffer.InsertBytes(BitConverter.GetBytes(_LEVELS.l_levels_page_pos), ipos); ipos += 8;
+            b_buffer.InsertBytes(BitConverter.GetBytes(_LEVELS.i_levels_page_len), ipos); ipos += 4;
+
+            //write
+            try
+            {
+                _GLOBALS.storage.Write(b_buffer, 0, ibuflen);
+                _GLOBALS.storage.Position = ibuflen;
+            }
+            catch (Exception) { }
+            _GLOBALS.storage_open = true;
+
+            return bool_ret;
+        }
+
+        private bool open_storage()
+        {
+            bool bool_ret = true;
+
+            //read
+            int ibuflen = 4 + 8 + 4; //version + levels_page_pos + levels_page_length
+            int ipos = 0, ilen = 0;
+            byte[] b_buffer = new byte[ibuflen];
+
+            _GLOBALS.storage = new FileStream(_GLOBALS.storage_name, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite, 1024 * 1024, FileOptions.Asynchronous);
+            if (_GLOBALS.storage == null) { return false; }
+
+            _GLOBALS.storage_length = _GLOBALS.storage.Length;
+            _GLOBALS.storage.Position = 0;
+            ilen = _GLOBALS.storage.Read(b_buffer, 0, ibuflen);
+            if (ilen < ibuflen) { return false; }
+
+            //parse
+            _GLOBALS.storage_version = b_buffer.GetBytes(ipos, 4); ipos += 4;
+            _LEVELS.l_levels_page_pos = BitConverter.ToInt64(b_buffer.GetBytes(ipos, 8), 0); ipos += 8;
+            _LEVELS.i_levels_page_len = BitConverter.ToInt32(b_buffer.GetBytes(ipos, 4), 0); ipos += 4;
+
+            //load levels
+            _GLOBALS.storage_open = true;
+            bool_ret = _LEVELS.LoadLevel();
+            if (bool_ret == false) { return false; }
 
             return bool_ret;
         }
@@ -44,7 +122,7 @@ namespace tStorage
             _GLOBALS.data_type = tStorage_service.returnTypeAndRawByteArray(ref data, fixed_length, out _GLOBALS.data);
 
             //search & add in tree (in memory)
-            bool_ret = _TREE.AddEntry(key, 0, ref _GLOBALS.data);
+            bool_ret = _TREE.AddEntry(key, 0, ref _GLOBALS.data_type, ref _GLOBALS.fixed_length, ref _GLOBALS.data);
 
             return bool_ret;
         }
@@ -106,7 +184,18 @@ namespace tStorage
         {
             bool bool_ret = true;
 
+            //make pages
+            int i = 0, icount = tstorage_tree.CKeysToSave.lst_items.Count;
+            for (i = 0; i < icount; i++)
+            {
+                string skey = tstorage_tree.CKeysToSave.lst_items[i].Key;
+                tstorage_tree.CKeyItem ck=  tstorage_tree.CKeysToSave.GetKeyItem(tstorage_tree.CKeysToSave.lst_items[i].i_keyitem_index);
 
+
+            }//for
+
+            //save levels_page
+            bool_ret = _LEVELS.SaveLevel();
 
             return bool_ret;
         }

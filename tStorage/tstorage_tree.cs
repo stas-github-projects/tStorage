@@ -25,6 +25,10 @@ namespace tStorage
             internal static List<NodeEntry> lst_items = new List<NodeEntry>(10);
             internal static void Add(NodeEntry _key)
             { lst_items.Add(_key); }
+            internal static CKeyItem GetKeyItem(int index)
+            {
+                return lst_keyitems[index];
+            }
             internal static void Clear()
             { lst_items.Clear(); }
         }
@@ -38,16 +42,29 @@ namespace tStorage
             long created = 0;
             long value_pos = 0;
             int value_length = 0;
+            //fill
+            public void Fill(byte _data_type, ushort _fixed_length, int _value_length = 0)
+            {
+                data_type = _data_type;
+                fixed_length = _fixed_length;
+                is_unix = 0;
+                created = DateTime.Now.Ticks;
+                //value_pos - fill in the end
+                value_length = _value_length;
+            }
         }
 
         public class NodeEntry
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public NodeEntry()
+            public NodeEntry(bool bool_add_data_index = false)
             {
                 this.Children = new NodeEntryCollection();
                 this.i_keyitem_index = getKeyitemIndex();
-                this.i_data_index = getDataIndex();
+                if (bool_add_data_index) //add data
+                { this.i_data_index = getDataIndex(); }
+                else
+                { this.i_data_index = -1; }
             }
 
             public string Key { get; set; }
@@ -152,7 +169,7 @@ namespace tStorage
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public bool AddEntry(string sEntry, int wBegIndex, ref byte[] data)
+            public bool AddEntry(string sEntry, int wBegIndex, ref byte data_type, ref ushort fixed_length, ref byte[] data)
             {
                 if (sEntry_length == 0) //length cashing
                 { sEntry_length = sEntry.Length; bool_addentry_result = false; }
@@ -180,18 +197,31 @@ namespace tStorage
                         }
                         else
                         {
-                            lst_data.Add(data); //data
-                            oItem = new NodeEntry();
-                            oItem.Key = sKey;
                             //add keyitem
                             CKeyItem keyitem = new CKeyItem();
-                            lst_keyitems.Add(keyitem);
+
+                            if (wEndIndex == sEntry_length) //if it's finished chain
+                            {
+                                lst_data.Add(data); //data
+                                keyitem.Fill(data_type, fixed_length,data.Length);
+                                lst_keyitems.Add(keyitem);
+                                oItem = new NodeEntry(true);
+                            }
+                            else //else
+                            {
+                                keyitem.Fill(data_type, fixed_length);
+                                lst_keyitems.Add(keyitem);
+                                oItem = new NodeEntry();
+                            }
+
+                            oItem.Key = sKey;
+                            
                             this.Add(sKey, oItem);
                             CKeysToSave.Add(oItem); //add to save list
                             bool_addentry_result = true;
                         }
                         // Now add the rest to the new item's children
-                        bool_addentry_result = oItem.Children.AddEntry(sEntry, wEndIndex + i_delim_length, ref data);
+                        bool_addentry_result = oItem.Children.AddEntry(sEntry, wEndIndex + i_delim_length,ref  data_type, ref  fixed_length, ref data);
                         //return;
                     }
                 }

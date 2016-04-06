@@ -68,9 +68,18 @@ namespace tStorage
                 //write
                 try
                 {
+                    //save levels_page
                     _g.storage.Position = _g.storage_length;
                     _g.storage.Write(b_buffer, 0, ibuflen);
-                    _g.storage_length += ibuflen;
+                    //save pos to levels_page
+                    byte[] b_level = new byte[12];
+                    b_level.InsertBytes(BitConverter.GetBytes(_g.storage_length), 8);
+                    b_level.InsertBytes(BitConverter.GetBytes(ibuflen), 4);
+
+                    _g.storage.Position = 4; //pos of version
+                    _g.storage.Write(b_level, 0, 12);
+                    _g.storage_length += _g.storage.Length;
+                    _g.storage.Position = _g.storage_length;
                 }
                 catch(Exception)
                 { bool_ret = false; }
