@@ -54,7 +54,7 @@ namespace tStorage
             int value_length = 0;
             string s_full_path = "";
             //fill
-            public void Fill(string s_path, byte _data_type, ushort _fixed_length, int _value_length = 0)
+            public void Fill(string s_path, byte _data_type, ushort _fixed_length, int _value_length = 0, long _value_pos = 0)
             {
                 s_full_path = s_path;
                 data_type = _data_type;
@@ -63,7 +63,12 @@ namespace tStorage
                 created = DateTime.Now.Ticks;
 
                 _glob.l_virtual_storage_length += (_glob.storage_key_length + _glob.storage_path_max_length);//_value_length + _glob.storage_path_max_length + );
-                value_pos = _glob.l_virtual_storage_length;
+
+                if (_value_pos == 0)
+                { value_pos = _glob.l_virtual_storage_length; }
+                else
+                { value_pos = _value_pos; }
+
                 value_length = _value_length;
 
                 i_data_length += _value_length; //increase global value length

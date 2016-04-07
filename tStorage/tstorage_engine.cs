@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+//using System.IO.MemoryMappedFiles;
 using System.Threading.Tasks;
 
 namespace tStorage
@@ -10,13 +11,13 @@ namespace tStorage
     {
         tStorage.CGlobals _GLOBALS = new CGlobals();
         tstorage_tree.NodeEntryCollection _TREE = new tstorage_tree.NodeEntryCollection();
-        CLevelsPage _LEVELS;// = new CLevelsPage()
+        //CLevelsPage _LEVELS;// = new CLevelsPage()
 
         public tStorage()
         {
             //init tree
             tstorage_tree.init(_GLOBALS, _GLOBALS.storage_keys_delim);//, _GLOBALS.storage_key_max_length, _GLOBALS.storage_max_levels_depth);
-            _LEVELS = new CLevelsPage(_GLOBALS);
+            //_LEVELS = new CLevelsPage(_GLOBALS);
         }
 
         /// <summary>
@@ -31,15 +32,15 @@ namespace tStorage
             if (!finfo.Exists) //create
             {
                 bool_ret = create_storage();
-                if (!bool_ret) { _GLOBALS.storage = null; _GLOBALS.storage_open = false; _GLOBALS.storage_length = 0; }
+                if (bool_ret == false) { _GLOBALS.storage = null; _GLOBALS.storage_open = false; _GLOBALS.storage_length = 0; return false; }
             }
             else //open
             {
                 bool_ret = open_storage();
-                if (!bool_ret) { _GLOBALS.storage = null; _GLOBALS.storage_open = false; _GLOBALS.storage_length = 0; }
+                if (!bool_ret) { _GLOBALS.storage = null; _GLOBALS.storage_open = false; _GLOBALS.storage_length = 0; return false; }
                 //load indicies
-                bool_ret =load_indicies();
-                if (bool_ret == false) { _TREE.Clear(); return false; }
+                bool_ret = load_indicies();
+                if (bool_ret == false) { _TREE.Clear(); _GLOBALS.storage = null; _GLOBALS.storage_open = false; _GLOBALS.storage_length = 0;  return false; }
             }
 
             return bool_ret;
@@ -59,8 +60,8 @@ namespace tStorage
 
             _GLOBALS.storage_length = ibuflen;
 
-            _LEVELS.l_levels_page_pos = ibuflen;
-            _LEVELS.i_levels_page_len = 0;
+            //_LEVELS.l_levels_page_pos = ibuflen;
+            //_LEVELS.i_levels_page_len = 0;
 
             b_buffer.InsertBytes(_GLOBALS.storage_version, ipos); ipos += 4;
             //b_buffer.InsertBytes(BitConverter.GetBytes(_LEVELS.l_levels_page_pos), ipos); ipos += 8;
@@ -69,11 +70,15 @@ namespace tStorage
             //write
             try
             {
+                _GLOBALS.storage_open = true;
+                //header
                 _GLOBALS.storage.Write(b_buffer, 0, ibuflen);
                 _GLOBALS.storage.Position = ibuflen;
+                //settings
+                bool_ret = write_params();
             }
             catch (Exception) { }
-            _GLOBALS.storage_open = true;
+            if (bool_ret == false) { return false; }
 
             return bool_ret;
         }
@@ -100,23 +105,110 @@ namespace tStorage
             //_LEVELS.l_levels_page_pos = BitConverter.ToInt64(b_buffer.GetBytes(ipos, 8), 0); ipos += 8;
             //_LEVELS.i_levels_page_len = BitConverter.ToInt32(b_buffer.GetBytes(ipos, 4), 0); ipos += 4;
 
-            //load levels
+            //read settings
             _GLOBALS.storage_open = true;
-            bool_ret = _LEVELS.LoadLevel();
+
+            bool_ret = load_indicies(); //load indicies
             if (bool_ret == false) { return false; }
+            bool_ret = read_params();
+
+            //if (bool_ret==false) { return false; }
+            //bool_ret = _LEVELS.LoadLevel();
+            //if (bool_ret == false) { return false; }
 
             return bool_ret;
         }
 
         private bool load_indicies()
         {
-            bool bool_ret = true;
+            bool bool_ret = true, bool_exit = false;
 
             if (_GLOBALS.storage_open == false) { return false; }
-            
+
+            int i = 0, inewpos = 0, ilen = 1, ipos = 0, ikeylen = _GLOBALS.storage_key_length + _GLOBALS.storage_path_max_length, _len = 0;
+            long l_pos = 4, _created = 0, _pos = 0;
+            byte _data_type = 0, _is_unix = 0;
+            ushort _fixed = 0;
+            string spath = "";
+            byte[] b_buffer = new byte[_GLOBALS.i_read_buffer];
+
+            while (ilen > 0)
+            {
+                _GLOBALS.storage.Position = l_pos;
+                ilen = _GLOBALS.storage.Read(b_buffer, 0, _GLOBALS.i_read_buffer);
+                if (ilen == 0) { break; }
+                if (ilen < _GLOBALS.i_read_buffer) { bool_exit = true; }
+
+                //parse
+                //for (i = 0; i < ilen; i++)
+                ipos = 0;
+                while (ipos < ilen)
+                {
+                    if (b_buffer[i] == 0) //if record is blocked
+                    { ipos += ikeylen; } //skip
+                    else
+                    {
+                        //detect completeness
+                        if ((ipos + ikeylen) > ilen) //need to load next
+                        { inewpos = (ipos + ikeylen) - ilen; l_pos +=( ilen - ikeylen + inewpos); break; }
+                        //parse next
+                        ipos++; //active
+                        _data_type = b_buffer[ipos]; ipos++; //data_type
+                        _fixed = BitConverter.ToUInt16(b_buffer.GetBytes(ipos, 2), 0); ipos += 2; //fixed_length
+                        _created = BitConverter.ToInt64(b_buffer.GetBytes(ipos, 8), 0); ipos += 8; //created
+                        _is_unix = b_buffer[ipos]; ipos++; //is_unix
+                        spath = b_buffer.GetBytes(ipos, _GLOBALS.storage_path_max_length).GetClearString_ASCII(); ipos += _GLOBALS.storage_path_max_length; //path
+                        _pos = BitConverter.ToInt64(b_buffer.GetBytes(ipos, 8), 0); ipos += 8; //pos
+                        _len = BitConverter.ToInt32(b_buffer.GetBytes(ipos, 4), 0); ipos += 4; //len
+                        ipos += _len;
+                        //keyitem
+                        //add to tree
+                        //TO-DO
+
+                    }//else
+                }//for
+
+                if (bool_exit) { break; } //exit
+
+            }//while
 
             return bool_ret;
         }
+
+        /*
+         b_buffer[0] = 1; //active
+                b_buffer[1] = data_type; //data type
+                b_buffer.InsertBytes(BitConverter.GetBytes(fixed_length), ipos); ipos += 2; //fixed length
+                b_buffer.InsertBytes(BitConverter.GetBytes(created), ipos); ipos += 8; //created
+                b_buffer[ipos] = is_unix; ipos++; //is unix
+                b_buffer.InsertBytes(Encoding.ASCII.GetBytes(s_full_path), ipos); ipos += _glob.storage_path_max_length;
+                b_buffer.InsertBytes(BitConverter.GetBytes(value_pos), ipos); ipos += 8;
+                b_buffer.InsertBytes(BitConverter.GetBytes(value_length), ipos); ipos += 4;
+         */
+        private bool write_params()
+        {
+            bool bool_ret = true;
+
+            _GLOBALS.storage_created = DateTime.Now.Ticks; //current time
+
+            Create("system/created",_GLOBALS.storage_created);
+            Create("system/storage_path_max_length", _GLOBALS.storage_path_max_length);
+            Create("system/delim", _GLOBALS.storage_keys_delim);
+            Create("system/query_delim", _GLOBALS.storage_query_delim);
+            Commit(); //save
+
+            return bool_ret;
+        }
+
+        private bool read_params()
+        {
+            bool bool_ret = true;
+
+            //_GLOBALS.storage_version = Read("system/created")[0];
+
+            return bool_ret;
+        }
+
 
         //
         // CREATE
@@ -149,11 +241,21 @@ namespace tStorage
         /// Read one or several pairs of values from given keys
         /// <para>If certain key doesn't exist engine returns 'False'</para>
         /// </summary>
-        public bool Read(string[] key, string[] parameters = null)
-        {
-            bool bool_ret = true;
 
-            return bool_ret;
+        public List<dynamic> Read(string key, string[] parameters = null)
+        {
+            return Read(new string[] { key }, parameters);
+        }
+        public List<dynamic> Read(string[] key, string[] parameters = null)
+        {
+            List<dynamic> lst_out = new List<dynamic>(10);
+
+            for (int i = 0; i < key.Length; i++)
+            {
+                tstorage_tree.CKeyItem ck= _TREE.SearchForItem(key[i]);
+            }//for
+
+            return lst_out;
         }
 
         //
@@ -200,6 +302,9 @@ namespace tStorage
 
             if (_GLOBALS.storage_open == false) { return false; }
 
+            //detect forbidden path
+
+
             //make pages
             int i = 0, icount = tstorage_tree.CKeysToSave.lst_items.Count, ipos = 0, i_key_length = _GLOBALS.storage_key_length + _GLOBALS.storage_path_max_length, ibuflen = icount * (i_key_length) + tstorage_tree.i_data_length;
             byte[] b_buffer = new byte[ibuflen];
@@ -226,6 +331,7 @@ namespace tStorage
             //clear
             tstorage_tree.CKeysToSave.Clear();
             tstorage_tree.Save_Clear();
+            _GLOBALS.l_virtual_storage_length = 0;
 
             return bool_ret;
         }

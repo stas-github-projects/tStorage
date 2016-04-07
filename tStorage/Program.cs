@@ -21,9 +21,9 @@ namespace tStorage
 
             s.Start(); //start timer
 
-            for (int i = 0; i < 100000;i++ )
-            { tstorage.Create("root/key0/sub" + i, "test"); }
-            tstorage.Commit();
+            //for (int i = 0; i < 100000;i++ )
+            //{ tstorage.Create("root/key0/sub" + i, "test"); }
+            //tstorage.Commit();
 
             s.Stop(); //stop timer
 
