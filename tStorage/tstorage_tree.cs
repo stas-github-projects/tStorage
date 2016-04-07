@@ -2,23 +2,32 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
+//using tStorage;
 using System.Threading.Tasks;
 
 namespace tStorage
 {
     internal class tstorage_tree
     {
-        private static List<byte[]> lst_data = new List<byte[]>();
-        private static List<CKeyItem> lst_keyitems = new List<CKeyItem>();
+        private static tStorage.CGlobals _glob;
+        internal static int i_data_length = 0;
+        internal static List<byte[]> lst_data = new List<byte[]>();
+        internal static List<int> lst_data_length = new List<int>();
+        internal static List<CKeyItem> lst_keyitems = new List<CKeyItem>();
         
         //params
         private static char[] str_delim;
         private static int i_delim_length;
-        private static int max_key_length;
-        private static int max_levels_depth;
+        private static int i_path_max_length;
+        //private static int max_levels_depth;
 
-        internal static void init(char[] _delim, int _max_length, int _max_levels_depth)
-        { str_delim = _delim; i_delim_length = str_delim.Length; max_key_length = _max_length; max_levels_depth = _max_levels_depth; }
+        internal static void init(tStorage.CGlobals _g, char[] _delim)//, int _max_length, int _max_levels_depth)
+        { _glob = _g; str_delim = _delim; i_delim_length = str_delim.Length; i_path_max_length = _g.storage_path_max_length; }//max_key_length = _max_length; max_levels_depth = _max_levels_depth; }
+
+        internal static void Save_Clear()
+        {
+            i_data_length=0; lst_data.Clear(); lst_data_length.Clear();
+        }
 
         internal static class CKeysToSave
         {
@@ -36,21 +45,46 @@ namespace tStorage
         public class CKeyItem
         {
             //TO-DO
+            //private int 
             byte data_type = 0;
             ushort fixed_length = 0;
             byte is_unix = 0;
             long created = 0;
             long value_pos = 0;
             int value_length = 0;
+            string s_full_path = "";
             //fill
-            public void Fill(byte _data_type, ushort _fixed_length, int _value_length = 0)
+            public void Fill(string s_path, byte _data_type, ushort _fixed_length, int _value_length = 0)
             {
+                s_full_path = s_path;
                 data_type = _data_type;
                 fixed_length = _fixed_length;
                 is_unix = 0;
                 created = DateTime.Now.Ticks;
-                //value_pos - fill in the end
+
+                _glob.l_virtual_storage_length += (_glob.storage_key_length + _glob.storage_path_max_length);//_value_length + _glob.storage_path_max_length + );
+                value_pos = _glob.l_virtual_storage_length;
                 value_length = _value_length;
+
+                i_data_length += _value_length; //increase global value length
+
+                _glob.l_virtual_storage_length += (value_length);
+            }
+            public byte[] GetBytes()
+            {
+                int ipos = 2;
+                byte[] b_buffer = new byte[_glob.storage_key_length + _glob.storage_path_max_length];
+
+                b_buffer[0] = 1; //active
+                b_buffer[1] = data_type; //data type
+                b_buffer.InsertBytes(BitConverter.GetBytes(fixed_length), ipos); ipos += 2; //fixed length
+                b_buffer.InsertBytes(BitConverter.GetBytes(created), ipos); ipos += 8; //created
+                b_buffer[ipos] = is_unix; ipos++; //is unix
+                b_buffer.InsertBytes(Encoding.ASCII.GetBytes(s_full_path), ipos); ipos += _glob.storage_path_max_length;
+                b_buffer.InsertBytes(BitConverter.GetBytes(value_pos), ipos); ipos += 8;
+                b_buffer.InsertBytes(BitConverter.GetBytes(value_length), ipos); ipos += 4;
+
+                return b_buffer;
             }
         }
 
@@ -104,6 +138,7 @@ namespace tStorage
         //private static bool bool_entry = false;
         private static int g_keyitem_index = 0;
         private static int sEntry_length = 0;
+        private static int i_datalength = 0;
 
         private static bool bool_addentry_result = false;
         private static string sKey = "";
@@ -172,7 +207,10 @@ namespace tStorage
             public bool AddEntry(string sEntry, int wBegIndex, ref byte data_type, ref ushort fixed_length, ref byte[] data)
             {
                 if (sEntry_length == 0) //length cashing
-                { sEntry_length = sEntry.Length; bool_addentry_result = false; }
+                {
+                    sEntry_length = sEntry.Length; bool_addentry_result = false;
+                    if (sEntry_length > i_path_max_length) { return false; } //path is too long
+                }
 
                 if (wBegIndex < sEntry_length)
                 {
@@ -203,13 +241,16 @@ namespace tStorage
                             if (wEndIndex == sEntry_length) //if it's finished chain
                             {
                                 lst_data.Add(data); //data
-                                keyitem.Fill(data_type, fixed_length,data.Length);
+                                i_datalength = data.Length;
+                                lst_data_length.Add(i_datalength);
+                                keyitem.Fill(sEntry, data_type, fixed_length, i_datalength);
                                 lst_keyitems.Add(keyitem);
                                 oItem = new NodeEntry(true);
+                                CKeysToSave.Add(oItem);
                             }
                             else //else
                             {
-                                keyitem.Fill(data_type, fixed_length);
+                                //keyitem.Fill("", data_type, fixed_length);
                                 lst_keyitems.Add(keyitem);
                                 oItem = new NodeEntry();
                             }
@@ -217,7 +258,7 @@ namespace tStorage
                             oItem.Key = sKey;
                             
                             this.Add(sKey, oItem);
-                            CKeysToSave.Add(oItem); //add to save list
+                            //CKeysToSave.Add(oItem); //add to save list
                             bool_addentry_result = true;
                         }
                         // Now add the rest to the new item's children
