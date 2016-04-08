@@ -142,13 +142,14 @@ namespace tStorage
         }
         //private static bool bool_entry = false;
         private static int g_keyitem_index = 0;
-        private static int sEntry_length = 0;
+        public static int sEntry_length = 0;
         private static int i_datalength = 0;
 
         private static bool bool_addentry_result = false;
         private static string sKey = "";
         private static int wEndIndex = 0;
         private static NodeEntry oItem;
+        //private static CKeyItem _keyitem;
 
         public class NodeEntryCollection : Dictionary<string, NodeEntry>
         {
@@ -163,7 +164,109 @@ namespace tStorage
                 { keyitem = lst_keyitems[g_keyitem_index]; }
                 else
                 { keyitem = new CKeyItem(); }
+
                 return keyitem;
+            }
+
+            public bool SearchForKeyUpdate(string sEntry, object data)
+            {
+                bool bool_ret = true;
+
+                _glob.data_type = tStorage_service.returnTypeAndRawByteArray(ref data, 0, out _glob.data);
+
+                sEntry_length = sEntry.Length;
+                search_recursive_update(sEntry, 0);
+
+                if (g_keyitem_index > -1)
+                { bool_ret = true; }
+                else
+                { bool_ret = false; }
+
+                return bool_ret;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void search_recursive_update(string sEntry, int wBegIndex)
+            {
+                if (sEntry_length == 0) //length cashing
+                { sEntry_length = sEntry.Length; }
+
+                if (wBegIndex < sEntry_length)
+                {
+                    string sKey;
+                    int wEndIndex;
+
+                    wEndIndex = IndexOfEx(sEntry, wBegIndex); //sEntry.IndexOf("/", wBegIndex); --faster replacement
+                    if (wEndIndex == -1)
+                    {
+                        wEndIndex = sEntry_length; // sEntry.Length;
+                    }
+                    //sKey = sEntry.Substring(wBegIndex, wEndIndex - wBegIndex);
+                    if (wEndIndex > wBegIndex) //--faster replacement
+                    //if (!string.IsNullOrEmpty(sKey))
+                    //if(sKey.Length>0)
+                    {
+                        NodeEntry oItem;
+                        sKey = sEntry.Substring(wBegIndex, wEndIndex - wBegIndex);
+                        if (this.ContainsKey(sKey))
+                        {
+                            oItem = this[sKey];
+                            if (wEndIndex == sEntry_length)
+                            {
+                                //change KeyItem class instance
+                                int iindex = oItem.i_keyitem_index;
+                                CKeyItem keyitem = lst_keyitems[iindex];
+                                if (_glob.data_type == keyitem.data_type) //if data types are equals
+                                {
+                                    long lpos = keyitem.value_pos;
+                                    int ilen = keyitem.value_length;
+                                    ushort u_fixedlength = keyitem.fixed_length;
+
+                                    //update changes to storage
+                                    if (u_fixedlength < ilen && u_fixedlength > 0)
+                                    {
+                                        g_keyitem_index = -1; return; //exit if fixed_length less than new value_length
+                                    }//if
+                                    else if (u_fixedlength > ilen) //can update
+                                    {
+                                        //update info in memory
+
+                                    }
+                                    else //fixed_length == 0 - change pos if need
+                                    {
+                                        int idatalen = _glob.data.Length; //given
+                                        if (ilen > idatalen) //need to change pos
+                                        {
+
+                                        }
+                                        else //just change content
+                                        {
+                                            //in memory
+                                            lst_keyitems[iindex].value_length = idatalen;
+                                            //in storage
+                                            _glob.storage.Position = lpos;
+                                            _glob.storage.Write(_glob.data, 0, idatalen);
+                                            _glob.storage.Position = _glob.storage_length; ;
+                                        }
+                                    }
+
+                                }
+                                return;
+                            }
+                            else
+                            { oItem.Children.search_recursive_update(sEntry, wEndIndex + i_delim_length); }
+                        }
+                        //else
+                        //{
+                        //    wEndIndex = wEndIndex;
+                        //}
+                        // Now add the rest to the new item's children
+                        //oItem.Children.search_recursive(sEntry, wEndIndex + 1);
+                        return;
+                    }
+                }
+                else
+                { sEntry_length = 0; }
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -17,7 +17,8 @@ namespace tStorage
 
             tStorage tstorage = new tStorage();
             
-            tstorage.Open("test1");  
+            tstorage.Open("test1");
+            tstorage.Update("system/query_delim", new char[]{'*'});
 
             s.Start(); //start timer
 

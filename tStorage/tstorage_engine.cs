@@ -171,6 +171,7 @@ namespace tStorage
                         ckeyitem.value_length = _len;
                         ckeyitem.value_pos = _pos;
                         //add to tree
+                        tstorage_tree.sEntry_length = spath.Length;
                         _TREE.AddEntry_indicies(spath, 0, ref ckeyitem);
                     }//else
                 }//for
@@ -182,16 +183,6 @@ namespace tStorage
             return bool_ret;
         }
 
-        /*
-         b_buffer[0] = 1; //active
-                b_buffer[1] = data_type; //data type
-                b_buffer.InsertBytes(BitConverter.GetBytes(fixed_length), ipos); ipos += 2; //fixed length
-                b_buffer.InsertBytes(BitConverter.GetBytes(created), ipos); ipos += 8; //created
-                b_buffer[ipos] = is_unix; ipos++; //is unix
-                b_buffer.InsertBytes(Encoding.ASCII.GetBytes(s_full_path), ipos); ipos += _glob.storage_path_max_length;
-                b_buffer.InsertBytes(BitConverter.GetBytes(value_pos), ipos); ipos += 8;
-                b_buffer.InsertBytes(BitConverter.GetBytes(value_length), ipos); ipos += 4;
-         */
         private bool write_params()
         {
             bool bool_ret = true;
@@ -302,6 +293,9 @@ namespace tStorage
         public bool Update(string key, object data = null, string[] parameters = null)
         {
             bool bool_ret = true;
+            if (_GLOBALS.storage_open == false) { return false; }
+
+            bool_ret = _TREE.SearchForKeyUpdate(key, data);//, _keyitem);
 
             return bool_ret;
         }
