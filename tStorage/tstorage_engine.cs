@@ -162,9 +162,16 @@ namespace tStorage
                         _len = BitConverter.ToInt32(b_buffer.GetBytes(ipos, 4), 0); ipos += 4; //len
                         ipos += _len;
                         //keyitem
+                        tstorage_tree.CKeyItem ckeyitem = new tstorage_tree.CKeyItem();
+                        ckeyitem.created = _created;
+                        ckeyitem.data_type = _data_type;
+                        ckeyitem.fixed_length = _fixed;
+                        ckeyitem.is_unix = _is_unix;
+                        ckeyitem.s_full_path = spath;
+                        ckeyitem.value_length = _len;
+                        ckeyitem.value_pos = _pos;
                         //add to tree
-                        //TO-DO
-
+                        _TREE.AddEntry_indicies(spath, 0, ref ckeyitem);
                     }//else
                 }//for
 
@@ -203,8 +210,20 @@ namespace tStorage
         private bool read_params()
         {
             bool bool_ret = true;
+            
+            string[] arr_query = new string[4]
+            {
+                "system/created",
+                "system/storage_path_max_length",
+                "system/delim",
+                "system/query_delim"
+            };
+            List<dynamic> lst_ret = Read(arr_query);
 
-            //_GLOBALS.storage_version = Read("system/created")[0];
+            _GLOBALS.storage_created = lst_ret[0];
+            _GLOBALS.storage_path_max_length = lst_ret[1];
+            _GLOBALS.storage_keys_delim = lst_ret[2];
+            _GLOBALS.storage_query_delim = lst_ret[3];
 
             return bool_ret;
         }
@@ -249,10 +268,24 @@ namespace tStorage
         public List<dynamic> Read(string[] key, string[] parameters = null)
         {
             List<dynamic> lst_out = new List<dynamic>(10);
+            if (_GLOBALS.storage_open == false) { return lst_out; }
 
-            for (int i = 0; i < key.Length; i++)
+            int i = 0, ilen = 0;
+            long lpos = 0;
+
+            for (i = 0; i < key.Length; i++)
             {
-                tstorage_tree.CKeyItem ck= _TREE.SearchForItem(key[i]);
+                tstorage_tree.CKeyItem ck = _TREE.SearchForItem(key[i]);
+
+                 ilen = ck.value_length;
+                lpos = ck.value_pos;
+                if (ilen > 0 && lpos > 0)
+                {
+                    byte[] b_buffer = new byte[ck.value_length];
+                    _GLOBALS.storage.Position = lpos;
+                    _GLOBALS.storage.Read(b_buffer, 0, ilen);
+                    lst_out.Add(tStorage_service.returnObjectFromByteArray(ref b_buffer, ck.data_type));
+                }
             }//for
 
             return lst_out;

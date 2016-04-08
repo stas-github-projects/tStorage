@@ -46,13 +46,13 @@ namespace tStorage
         {
             //TO-DO
             //private int 
-            byte data_type = 0;
-            ushort fixed_length = 0;
-            byte is_unix = 0;
-            long created = 0;
-            long value_pos = 0;
-            int value_length = 0;
-            string s_full_path = "";
+            public byte data_type = 0;
+            public ushort fixed_length = 0;
+            public byte is_unix = 0;
+            public long created = 0;
+            public long value_pos = 0;
+            public int value_length = 0;
+            public string s_full_path = "";
             //fill
             public void Fill(string s_path, byte _data_type, ushort _fixed_length, int _value_length = 0, long _value_pos = 0)
             {
@@ -156,7 +156,9 @@ namespace tStorage
             {
                 CKeyItem keyitem;
                 g_keyitem_index = -1;
-                search_recursive(sEntry, 0);
+                sEntry_length = sEntry.Length;
+
+                search_recursive(sEntry, 0); //start search
                 if (g_keyitem_index > -1)
                 { keyitem = lst_keyitems[g_keyitem_index]; }
                 else
@@ -206,6 +208,74 @@ namespace tStorage
                 }
                 else
                 { sEntry_length = 0; }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool AddEntry_indicies(string sEntry, int wBegIndex, ref CKeyItem keyitem)
+            {
+                if (sEntry_length == 0) //length cashing
+                {
+                    sEntry_length = sEntry.Length; bool_addentry_result = false;
+                    if (sEntry_length > i_path_max_length) { return false; } //path is too long
+                }
+
+                if (wBegIndex < sEntry_length)
+                {
+                    //string sKey;
+                    //int wEndIndex;
+                    //sKey=new string(sEntry.Ta)
+                    wEndIndex = IndexOfEx(sEntry, wBegIndex); //sEntry.IndexOf("/", wBegIndex); --faster replacement
+                    if (wEndIndex == -1)
+                    {
+                        wEndIndex = sEntry_length; // sEntry.Length;
+                    }
+                    //sKey = sEntry.Substring(wBegIndex, wEndIndex - wBegIndex);
+                    if (wEndIndex > wBegIndex) //--faster replacement
+                    //if (!string.IsNullOrEmpty(sKey))
+                    //if(sKey.Length>0)
+                    {
+                        //NodeEntry oItem;
+                        sKey = sEntry.Substring(wBegIndex, wEndIndex - wBegIndex);
+                        if (this.ContainsKey(sKey))
+                        {
+                            oItem = this[sKey];
+                        }
+                        else
+                        {
+                            //add keyitem
+                            //CKeyItem keyitem = new CKeyItem();
+
+                            if (wEndIndex == sEntry_length) //if it's finished chain
+                            {
+                                i_datalength = keyitem.value_length;
+                                lst_data_length.Add(i_datalength);
+                                //keyitem.Fill(sEntry, data_type, fixed_length, i_datalength);
+                                lst_keyitems.Add(keyitem);
+                                oItem = new NodeEntry(true);
+                                CKeysToSave.Add(oItem);
+                            }
+                            else //else
+                            {
+                                //keyitem.Fill("", data_type, fixed_length);
+                                lst_keyitems.Add(keyitem);
+                                oItem = new NodeEntry();
+                            }
+
+                            oItem.Key = sKey;
+
+                            this.Add(sKey, oItem);
+                            //CKeysToSave.Add(oItem); //add to save list
+                            bool_addentry_result = true;
+                        }
+                        // Now add the rest to the new item's children
+                        bool_addentry_result = oItem.Children.AddEntry_indicies(sEntry, wEndIndex + i_delim_length, ref  keyitem);
+                        //return;
+                    }
+                }
+                else
+                { sEntry_length = 0; return bool_addentry_result; }
+                //
+                return bool_addentry_result;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
