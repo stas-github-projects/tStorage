@@ -126,7 +126,7 @@ namespace tStorage
             if (_GLOBALS.storage_open == false) { return false; }
 
             int i = 0, inewpos = 0, ilen = 1, ipos = 0, ikeylen = _GLOBALS.storage_key_length + _GLOBALS.storage_path_max_length, _len = 0;
-            long l_pos = 4, _created = 0, _pos = 0;
+            long l_pos = 4, _created = 0, _pos = 0, l_keypos = 0;
             byte _data_type = 0, _is_unix = 0;
             ushort _fixed = 0;
             string spath = "";
@@ -152,15 +152,22 @@ namespace tStorage
                         if ((ipos + ikeylen) > ilen) //need to load next
                         { inewpos = (ipos + ikeylen) - ilen; l_pos +=( ilen - ikeylen + inewpos); break; }
                         //parse next
+                        l_keypos = ipos; //key pos
                         ipos++; //active
                         _data_type = b_buffer[ipos]; ipos++; //data_type
                         _fixed = BitConverter.ToUInt16(b_buffer.GetBytes(ipos, 2), 0); ipos += 2; //fixed_length
                         _created = BitConverter.ToInt64(b_buffer.GetBytes(ipos, 8), 0); ipos += 8; //created
                         _is_unix = b_buffer[ipos]; ipos++; //is_unix
-                        spath = b_buffer.GetBytes(ipos, _GLOBALS.storage_path_max_length).GetClearString_ASCII(); ipos += _GLOBALS.storage_path_max_length; //path
+                        spath = b_buffer.GetBytes(ipos, _GLOBALS.storage_path_max_length).GetClearString_ASCII(); 
+                        ipos += _GLOBALS.storage_path_max_length; //path
                         _pos = BitConverter.ToInt64(b_buffer.GetBytes(ipos, 8), 0); ipos += 8; //pos
                         _len = BitConverter.ToInt32(b_buffer.GetBytes(ipos, 4), 0); ipos += 4; //len
-                        ipos += _len;
+
+                        if (_fixed > 0)
+                        { ipos += _fixed; }
+                        else
+                        { ipos += _len; }
+
                         //keyitem
                         tstorage_tree.CKeyItem ckeyitem = new tstorage_tree.CKeyItem();
                         ckeyitem.created = _created;
@@ -170,6 +177,7 @@ namespace tStorage
                         ckeyitem.s_full_path = spath;
                         ckeyitem.value_length = _len;
                         ckeyitem.value_pos = _pos;
+                        ckeyitem.key_pos_in_storage = (l_pos + l_keypos); //pos of key in storage
                         //add to tree
                         tstorage_tree.sEntry_length = spath.Length;
                         _TREE.AddEntry_indicies(spath, 0, ref ckeyitem);
@@ -268,7 +276,7 @@ namespace tStorage
             {
                 tstorage_tree.CKeyItem ck = _TREE.SearchForItem(key[i]);
 
-                 ilen = ck.value_length;
+                ilen = ck.value_length;
                 lpos = ck.value_pos;
                 if (ilen > 0 && lpos > 0)
                 {
@@ -333,7 +341,8 @@ namespace tStorage
 
 
             //make pages
-            int i = 0, icount = tstorage_tree.CKeysToSave.lst_items.Count, ipos = 0, i_key_length = _GLOBALS.storage_key_length + _GLOBALS.storage_path_max_length, ibuflen = icount * (i_key_length) + tstorage_tree.i_data_length;
+            int i = 0, icount = tstorage_tree.CKeysToSave.lst_items.Count, ipos = 0;
+            int i_key_length = _GLOBALS.storage_key_length + _GLOBALS.storage_path_max_length, ibuflen = icount * (i_key_length) + tstorage_tree.i_data_length;
             byte[] b_buffer = new byte[ibuflen];
             byte[] b_key;
             //byte[] b
@@ -343,7 +352,8 @@ namespace tStorage
                 tstorage_tree.CKeyItem ck = tstorage_tree.CKeysToSave.GetKeyItem(tstorage_tree.CKeysToSave.lst_items[i].i_keyitem_index);
                 b_key = ck.GetBytes(); //get key bytes
                 b_buffer.InsertBytes(b_key, ipos); ipos += i_key_length;
-                b_buffer.InsertBytes(tstorage_tree.lst_data[tstorage_tree.CKeysToSave.lst_items[i].i_data_index], ipos); ipos += tstorage_tree.lst_data_length[tstorage_tree.CKeysToSave.lst_items[i].i_data_index];
+                b_buffer.InsertBytes(tstorage_tree.lst_data[tstorage_tree.CKeysToSave.lst_items[i].i_data_index], ipos);
+                ipos += tstorage_tree.lst_data_length[tstorage_tree.CKeysToSave.lst_items[i].i_data_index];
             }//for
 
             //save data

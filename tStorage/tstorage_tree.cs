@@ -44,7 +44,8 @@ namespace tStorage
 
         public class CKeyItem
         {
-            //TO-DO
+            //pos of key in storage
+            public long key_pos_in_storage = 0;
             //private int 
             public byte data_type = 0;
             public ushort fixed_length = 0;
@@ -56,11 +57,16 @@ namespace tStorage
             //fill
             public void Fill(string s_path, byte _data_type, ushort _fixed_length, int _value_length = 0, long _value_pos = 0)
             {
+                int ilen = 0;
+
                 s_full_path = s_path;
                 data_type = _data_type;
                 fixed_length = _fixed_length;
                 is_unix = 0;
                 created = DateTime.Now.Ticks;
+
+                //add keypos in storage
+                key_pos_in_storage = _glob.l_virtual_storage_length;
 
                 _glob.l_virtual_storage_length += (_glob.storage_key_length + _glob.storage_path_max_length);//_value_length + _glob.storage_path_max_length + );
 
@@ -71,10 +77,16 @@ namespace tStorage
 
                 value_length = _value_length;
 
-                i_data_length += _value_length; //increase global value length
+                //detect fixed_length or value_length
+                if(_fixed_length>0)
+                { ilen = _fixed_length; }
+                else
+                { ilen = _value_length;                }
+                i_data_length += ilen; //increase global value length // was '_value_length'
 
-                _glob.l_virtual_storage_length += (value_length);
+                _glob.l_virtual_storage_length += (ilen); //value_length);
             }
+
             public byte[] GetBytes()
             {
                 int ipos = 2;
@@ -172,10 +184,10 @@ namespace tStorage
             {
                 bool bool_ret = true;
 
-                _glob.data_type = tStorage_service.returnTypeAndRawByteArray(ref data, 0, out _glob.data);
+                //_glob.data_type = tStorage_service.returnTypeAndRawByteArray(ref data, 0, out _glob.data);
 
                 sEntry_length = sEntry.Length;
-                search_recursive_update(sEntry, 0);
+                search_recursive_update(sEntry, 0, ref data);
 
                 if (g_keyitem_index > -1)
                 { bool_ret = true; }
@@ -186,7 +198,7 @@ namespace tStorage
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private void search_recursive_update(string sEntry, int wBegIndex)
+            private void search_recursive_update(string sEntry, int wBegIndex, ref object data)
             {
                 if (sEntry_length == 0) //length cashing
                 { sEntry_length = sEntry.Length; }
@@ -215,29 +227,64 @@ namespace tStorage
                             {
                                 //change KeyItem class instance
                                 int iindex = oItem.i_keyitem_index;
+
                                 CKeyItem keyitem = lst_keyitems[iindex];
+
+                                //ref data
+                                _glob.data_type = tStorage_service.returnTypeAndRawByteArray(ref data, keyitem.fixed_length, out _glob.data);
+
+                                /* ///test read from certain point - try to get keys' position from storage
+                                int itestbuflen2 = _glob.storage_key_length + _glob.storage_path_max_length;
+                                byte[] b_test_buffer2= new byte[itestbuflen2];
+                                _glob.storage.Position = keyitem.key_pos_in_storage;
+                                _glob.storage.Read(b_test_buffer2, 0, itestbuflen2);
+                                //*/
                                 if (_glob.data_type == keyitem.data_type) //if data types are equals
                                 {
                                     long lpos = keyitem.value_pos;
                                     int ilen = keyitem.value_length;
+                                    int idatalen = _glob.data.Length; //given
                                     ushort u_fixedlength = keyitem.fixed_length;
 
                                     //update changes to storage
-                                    if (u_fixedlength < ilen && u_fixedlength > 0)
+                                    if (u_fixedlength < idatalen && u_fixedlength > 0) //was 'ilen'
                                     {
                                         g_keyitem_index = -1; return; //exit if fixed_length less than new value_length
                                     }//if
-                                    else if (u_fixedlength > ilen) //can update
+                                    else if (u_fixedlength >= idatalen) //can update //was 'ilen'
                                     {
-                                        //update info in memory
-
+                                        //in memory
+                                        lst_keyitems[iindex].value_length = idatalen;
+                                        //save key in storage
+                                        int itestbuflen = _glob.storage_key_length + _glob.storage_path_max_length;
+                                        byte[] b_test_buffer = keyitem.GetBytes();
+                                        _glob.storage.Position = keyitem.key_pos_in_storage;
+                                        _glob.storage.Write(b_test_buffer, 0, itestbuflen);
+                                        //in storage
+                                        _glob.storage.Position = lpos;
+                                        _glob.storage.Write(_glob.data, 0, idatalen);
+                                        //_glob.storage_length = _glob.storage.Length;
+                                        _glob.storage.Position = _glob.storage_length;
                                     }
-                                    else //fixed_length == 0 - change pos if need
+                                    else if (u_fixedlength==0) //fixed_length == 0 - change pos if need
                                     {
-                                        int idatalen = _glob.data.Length; //given
-                                        if (ilen > idatalen) //need to change pos
+                                        //int idatalen = _glob.data.Length; //given
+                                        if (idatalen > ilen) //need to change pos //new data bigger than previous
                                         {
-
+                                            //in memory
+                                            lpos = _glob.storage.Length; //new pos
+                                            lst_keyitems[iindex].value_pos = lpos;
+                                            lst_keyitems[iindex].value_length = idatalen;
+                                            //save key in storage
+                                            int itestbuflen = _glob.storage_key_length + _glob.storage_path_max_length;
+                                            byte[] b_test_buffer = keyitem.GetBytes();
+                                            _glob.storage.Position = keyitem.key_pos_in_storage;
+                                            _glob.storage.Write(b_test_buffer, 0, itestbuflen);
+                                            //in storage
+                                            _glob.storage.Position = lpos;
+                                            _glob.storage.Write(_glob.data, 0, idatalen);
+                                            _glob.storage_length = lpos + idatalen;
+                                            _glob.storage.Position = _glob.storage_length;
                                         }
                                         else //just change content
                                         {
@@ -246,7 +293,7 @@ namespace tStorage
                                             //in storage
                                             _glob.storage.Position = lpos;
                                             _glob.storage.Write(_glob.data, 0, idatalen);
-                                            _glob.storage.Position = _glob.storage_length; ;
+                                            _glob.storage.Position = _glob.storage_length;
                                         }
                                     }
 
@@ -254,7 +301,7 @@ namespace tStorage
                                 return;
                             }
                             else
-                            { oItem.Children.search_recursive_update(sEntry, wEndIndex + i_delim_length); }
+                            { oItem.Children.search_recursive_update(sEntry, wEndIndex + i_delim_length, ref data); }
                         }
                         //else
                         //{
@@ -353,9 +400,10 @@ namespace tStorage
                                 i_datalength = keyitem.value_length;
                                 lst_data_length.Add(i_datalength);
                                 //keyitem.Fill(sEntry, data_type, fixed_length, i_datalength);
+                                
                                 lst_keyitems.Add(keyitem);
                                 oItem = new NodeEntry(true);
-                                CKeysToSave.Add(oItem);
+                                //CKeysToSave.Add(oItem);
                             }
                             else //else
                             {
@@ -419,8 +467,26 @@ namespace tStorage
                             if (wEndIndex == sEntry_length) //if it's finished chain
                             {
                                 lst_data.Add(data); //data
+                                
+                                //detect fixed length
                                 i_datalength = data.Length;
-                                lst_data_length.Add(i_datalength);
+                                if (fixed_length > 0)
+                                {
+                                    if (fixed_length > i_data_length)
+                                    { 
+                                        lst_data_length.Add(fixed_length);
+                                    }
+                                    else
+                                    { 
+                                        lst_data_length.Add(i_datalength);
+                                    }
+                                }
+                                else
+                                { 
+                                    lst_data_length.Add(i_datalength);
+                                }
+
+                                //fill up keyitem
                                 keyitem.Fill(sEntry, data_type, fixed_length, i_datalength);
                                 lst_keyitems.Add(keyitem);
                                 oItem = new NodeEntry(true);
