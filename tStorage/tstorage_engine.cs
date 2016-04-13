@@ -127,7 +127,7 @@ namespace tStorage
 
             int i = 0, inewpos = 0, ilen = 1, ipos = 0, ikeylen = _GLOBALS.storage_key_length + _GLOBALS.storage_path_max_length, _len = 0;
             long l_pos = 4, _created = 0, _pos = 0, l_keypos = 0;
-            byte _data_type = 0, _is_unix = 0;
+            byte _active = 0, _data_type = 0, _is_unix = 0;
             ushort _fixed = 0;
             string spath = "";
             byte[] b_buffer = new byte[_GLOBALS.i_read_buffer];
@@ -144,16 +144,16 @@ namespace tStorage
                 ipos = 0;
                 while (ipos < ilen)
                 {
-                    if (b_buffer[i] == 0) //if record is blocked
-                    { ipos += ikeylen; } //skip
-                    else
+                    //if (b_buffer[i] == 0) //if record is blocked
+                    //{ ipos += ikeylen; } //skip
+                    //else
                     {
                         //detect completeness
                         if ((ipos + ikeylen) > ilen) //need to load next
-                        { inewpos = (ipos + ikeylen) - ilen; l_pos +=( ilen - ikeylen + inewpos); break; }
+                        { inewpos = (ipos + ikeylen) - ilen; l_pos += (ilen - ikeylen + inewpos); break; }
                         //parse next
                         l_keypos = ipos; //key pos
-                        ipos++; //active
+                        _active = b_buffer[ipos]; ipos++; //active
                         _data_type = b_buffer[ipos]; ipos++; //data_type
                         _fixed = BitConverter.ToUInt16(b_buffer.GetBytes(ipos, 2), 0); ipos += 2; //fixed_length
                         _created = BitConverter.ToInt64(b_buffer.GetBytes(ipos, 8), 0); ipos += 8; //created
@@ -163,24 +163,31 @@ namespace tStorage
                         _pos = BitConverter.ToInt64(b_buffer.GetBytes(ipos, 8), 0); ipos += 8; //pos
                         _len = BitConverter.ToInt32(b_buffer.GetBytes(ipos, 4), 0); ipos += 4; //len
 
+                        if(_active==0)
+                        { i = i; }
+
                         if (_fixed > 0)
                         { ipos += _fixed; }
                         else
                         { ipos += _len; }
 
                         //keyitem
-                        tstorage_tree.CKeyItem ckeyitem = new tstorage_tree.CKeyItem();
-                        ckeyitem.created = _created;
-                        ckeyitem.data_type = _data_type;
-                        ckeyitem.fixed_length = _fixed;
-                        ckeyitem.is_unix = _is_unix;
-                        ckeyitem.s_full_path = spath;
-                        ckeyitem.value_length = _len;
-                        ckeyitem.value_pos = _pos;
-                        ckeyitem.key_pos_in_storage = (l_pos + l_keypos); //pos of key in storage
-                        //add to tree
-                        tstorage_tree.sEntry_length = spath.Length;
-                        _TREE.AddEntry_indicies(spath, 0, ref ckeyitem);
+                        if (_active == 1) //(b_buffer[l_keypos] != 0) //record is NOT blocked
+                        {
+                            tstorage_tree.CKeyItem ckeyitem = new tstorage_tree.CKeyItem();
+                            ckeyitem.active = 1;
+                            ckeyitem.created = _created;
+                            ckeyitem.data_type = _data_type;
+                            ckeyitem.fixed_length = _fixed;
+                            ckeyitem.is_unix = _is_unix;
+                            ckeyitem.s_full_path = spath;
+                            ckeyitem.value_length = _len;
+                            ckeyitem.value_pos = _pos;
+                            ckeyitem.key_pos_in_storage = (l_pos + l_keypos); //pos of key in storage
+                            //add to tree
+                            tstorage_tree.sEntry_length = spath.Length;
+                            _TREE.AddEntry_indicies(spath, 0, ref ckeyitem);
+                        }
                     }//else
                 }//for
 
@@ -276,15 +283,18 @@ namespace tStorage
             {
                 tstorage_tree.CKeyItem ck = _TREE.SearchForItem(key[i]);
 
-                ilen = ck.value_length;
-                lpos = ck.value_pos;
-                if (ilen > 0 && lpos > 0)
+                if (ck.active == 1) //if key is active
                 {
-                    byte[] b_buffer = new byte[ck.value_length];
-                    _GLOBALS.storage.Position = lpos;
-                    _GLOBALS.storage.Read(b_buffer, 0, ilen);
-                    lst_out.Add(tStorage_service.returnObjectFromByteArray(ref b_buffer, ck.data_type));
-                }
+                    ilen = ck.value_length;
+                    lpos = ck.value_pos;
+                    if (ilen > 0 && lpos > 0)
+                    {
+                        byte[] b_buffer = new byte[ck.value_length];
+                        _GLOBALS.storage.Position = lpos;
+                        _GLOBALS.storage.Read(b_buffer, 0, ilen);
+                        lst_out.Add(tStorage_service.returnObjectFromByteArray(ref b_buffer, ck.data_type));
+                    }
+                }//if
             }//for
 
             return lst_out;
@@ -316,12 +326,16 @@ namespace tStorage
         /// Delete one or several keys from storage
         /// <para>If certain key doesn't exist engine returns 'False'</para>
         /// </summary>
-        public bool Delete(string[] key, string[] parameters = null)
+        public bool Delete(string key)
         {
             bool bool_ret = true;
+            if (_GLOBALS.storage_open == false) { return false; }
+
+            bool_ret = _TREE.SearchForKeyDelete(key);//, _keyitem);
 
             return bool_ret;
         }
+        
 
         //
         // Commit

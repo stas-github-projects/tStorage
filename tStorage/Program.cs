@@ -16,19 +16,29 @@ namespace tStorage
             //s.Start();
 
             tStorage tstorage = new tStorage();
-            
+
+            //start timer
+            s.Start(); 
+
             tstorage.Open("test1");
             //tstorage.Update("system/query_delim", new char[]{'*'});
-            /* */
+            /* /
             tstorage.Create("root/key0", "test", 10);
             tstorage.Create("root/key1", "test");
             tstorage.Commit();
             //*/
-            tstorage.Update("root/key0", "test");
+            //tstorage.Create("root/key3", "testov");
+            //tstorage.Commit();
+            //tstorage.Update("root/key0", "test1");
             //tstorage.Update("root/key1", "test. OLD entry");
-            var ddd = tstorage.Read(new string[] { "root/key0", "root/key1" });
 
-            s.Start(); //start timer
+            //tstorage.Delete("root/key1");
+
+            List<dynamic> lst_out = new List<dynamic>(100);
+            for (int i = 0; i < 1; i++)
+            {
+                lst_out.Add(tstorage.Read(new string[] { "root/key0", "root/key1", "root/key3" }));
+            }
 
             //for (int i = 0; i < 100000;i++ )
             //{ tstorage.Create("root/key0/sub" + i, "test"); }

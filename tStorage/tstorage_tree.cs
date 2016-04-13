@@ -26,7 +26,7 @@ namespace tStorage
 
         internal static void Save_Clear()
         {
-            i_data_length=0; lst_data.Clear(); lst_data_length.Clear();
+            i_data_length = 0; lst_data.Clear(); lst_data_length.Clear();
         }
 
         internal static class CKeysToSave
@@ -47,6 +47,7 @@ namespace tStorage
             //pos of key in storage
             public long key_pos_in_storage = 0;
             //private int 
+            public byte active = 0;
             public byte data_type = 0;
             public ushort fixed_length = 0;
             public byte is_unix = 0;
@@ -59,6 +60,7 @@ namespace tStorage
             {
                 int ilen = 0;
 
+                active = 1;
                 s_full_path = s_path;
                 data_type = _data_type;
                 fixed_length = _fixed_length;
@@ -92,7 +94,7 @@ namespace tStorage
                 int ipos = 2;
                 byte[] b_buffer = new byte[_glob.storage_key_length + _glob.storage_path_max_length];
 
-                b_buffer[0] = 1; //active
+                b_buffer[0] = active; //active
                 b_buffer[1] = data_type; //data type
                 b_buffer.InsertBytes(BitConverter.GetBytes(fixed_length), ipos); ipos += 2; //fixed length
                 b_buffer.InsertBytes(BitConverter.GetBytes(created), ipos); ipos += 8; //created
@@ -271,7 +273,9 @@ namespace tStorage
                                         //int idatalen = _glob.data.Length; //given
                                         if (idatalen > ilen) //need to change pos //new data bigger than previous
                                         {
-                                            //in memory
+                                            UpdateExistingKeyWithNewBiggerValue(lpos, iindex, idatalen);//, keyitem);
+
+                                            /* WAS
                                             lpos = _glob.storage.Length; //new pos
                                             lst_keyitems[iindex].value_pos = lpos;
                                             lst_keyitems[iindex].value_length = idatalen;
@@ -285,6 +289,7 @@ namespace tStorage
                                             _glob.storage.Write(_glob.data, 0, idatalen);
                                             _glob.storage_length = lpos + idatalen;
                                             _glob.storage.Position = _glob.storage_length;
+                                            */
                                         }
                                         else //just change content
                                         {
@@ -315,6 +320,35 @@ namespace tStorage
                 else
                 { sEntry_length = 0; }
             }
+
+            private void UpdateExistingKeyWithNewBiggerValue(long lpos, int iindex, int idatalen)//, CKeyItem keyitem)
+            {
+                //block old record in storage
+                byte[] b_tempbuffer = new byte[1];
+                _glob.storage.Position = lst_keyitems[iindex].key_pos_in_storage;
+                _glob.storage.Write(b_tempbuffer, 0, 1);
+                //_glob.storage.Position = _glob.storage_length;
+                
+                //change info in existing record in memory
+                int ikeylen = _glob.storage_path_max_length + _glob.storage_key_length;
+                lpos = _glob.storage.Length; //new pos
+                lst_keyitems[iindex].key_pos_in_storage = lpos;
+                lst_keyitems[iindex].value_pos = lpos + ikeylen;
+                lst_keyitems[iindex].value_length = idatalen;
+                //save key in storage
+                int itestbuflen = _glob.storage_key_length + _glob.storage_path_max_length;
+                byte[] b_test_buffer = lst_keyitems[iindex].GetBytes();
+                _glob.storage.Position = lpos;// keyitem.key_pos_in_storage;
+                _glob.storage.Write(b_test_buffer, 0, ikeylen);
+
+                //in storage
+                _glob.storage_length = lpos + itestbuflen;
+                _glob.storage.Position = _glob.storage_length;
+                _glob.storage.Write(_glob.data, 0, idatalen);
+                _glob.storage_length += idatalen;
+                _glob.storage.Position = _glob.storage_length;
+            }
+
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void search_recursive(string sEntry, int wBegIndex)
@@ -359,6 +393,7 @@ namespace tStorage
                 else
                 { sEntry_length = 0; }
             }
+
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool AddEntry_indicies(string sEntry, int wBegIndex, ref CKeyItem keyitem)
@@ -515,6 +550,76 @@ namespace tStorage
                 //
                 return bool_addentry_result;
             }
+
+
+            public bool SearchForKeyDelete(string sEntry)
+            {
+                bool bool_ret = true;
+
+                //_glob.data_type = tStorage_service.returnTypeAndRawByteArray(ref data, 0, out _glob.data);
+
+                sEntry_length = sEntry.Length;
+                search_delete(sEntry, 0);
+
+                if (g_keyitem_index > -1)
+                { bool_ret = true; }
+                else
+                { bool_ret = false; }
+
+                return bool_ret;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void search_delete(string sEntry, int wBegIndex)
+            {
+                if (sEntry_length == 0) //length cashing
+                { sEntry_length = sEntry.Length; }
+
+                if (wBegIndex < sEntry_length)
+                {
+                    string sKey;
+                    int wEndIndex;
+
+                    wEndIndex = IndexOfEx(sEntry, wBegIndex); //sEntry.IndexOf("/", wBegIndex); --faster replacement
+                    if (wEndIndex == -1)
+                    {
+                        wEndIndex = sEntry_length; // sEntry.Length;
+                    }
+                    //sKey = sEntry.Substring(wBegIndex, wEndIndex - wBegIndex);
+                    if (wEndIndex > wBegIndex) //--faster replacement
+                    //if (!string.IsNullOrEmpty(sKey))
+                    //if(sKey.Length>0)
+                    {
+                        NodeEntry oItem;
+                        sKey = sEntry.Substring(wBegIndex, wEndIndex - wBegIndex);
+                        if (this.ContainsKey(sKey))
+                        {
+                            oItem = this[sKey];
+                            if (wEndIndex == sEntry_length)
+                            { 
+                                byte[] b_tempbuffer = new byte[1];
+                                
+                                g_keyitem_index = oItem.i_keyitem_index;
+                                CKeyItem keyitem = lst_keyitems[g_keyitem_index];
+                                
+                                //block in memory
+                                lst_keyitems[g_keyitem_index].active = 0;
+                                //block in storage
+                                _glob.storage.Position = keyitem.key_pos_in_storage;
+                                _glob.storage.Write(b_tempbuffer, 0, 1);
+                                _glob.storage.Position = _glob.storage_length;
+                                return;
+                            }
+                            else
+                            { oItem.Children.search_delete(sEntry, wEndIndex + i_delim_length); }
+                        }
+                        return;
+                    }
+                }
+                else
+                { sEntry_length = 0; }
+            }
+
         }
 
     }
