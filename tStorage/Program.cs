@@ -23,9 +23,14 @@ namespace tStorage
             tstorage.Open("test1");
             //tstorage.Update("system/query_delim", new char[]{'*'});
             /* /
+            tstorage.Create("root/key0", "test1", 10);
+            tstorage.Create("root/key1", "test2", 22);
+            tstorage.Create("root/key2", "test3");
+            /* /
             tstorage.Create("root/s/key0", "test1", 10);
             tstorage.Create("root/s/key1", "test2", 22);
             tstorage.Create("root/s/key2", "test3");
+            //*/
             tstorage.Commit();
             //*/
             //tstorage.Create("root/key3", "testov");

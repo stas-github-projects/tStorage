@@ -564,7 +564,16 @@ namespace tStorage
                             if (wEndIndex == sEntry_length) //if it's finished chain
                             {
                                 i_datalength = keyitem.value_length;
-                                lst_data_length.Add(i_datalength);
+                                if (keyitem.fixed_length > i_datalength && i_datalength>0)
+                                {
+                                    lst_data_length.Add(keyitem.fixed_length);
+                                }
+                                else
+                                {
+                                    lst_data_length.Add(i_datalength);
+                                }
+                                //i_datalength = keyitem.value_length;
+                                //lst_data_length.Add(i_datalength); //old
                                 //keyitem.Fill(sEntry, data_type, fixed_length, i_datalength);
                                 
                                 lst_keyitems.Add(keyitem);
@@ -574,7 +583,7 @@ namespace tStorage
                             else //else
                             {
                                 //keyitem.Fill("", data_type, fixed_length);
-                                lst_keyitems.Add(keyitem);
+                                //lst_keyitems.Add(keyitem);
                                 oItem = new NodeEntry();
                             }
 

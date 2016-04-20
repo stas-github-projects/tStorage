@@ -409,6 +409,7 @@ namespace tStorage
             }//for
 
             //save data
+            _GLOBALS.storage_length = _GLOBALS.storage.Length;
             _GLOBALS.storage.Position = _GLOBALS.storage_length;
             _GLOBALS.storage.Write(b_buffer, 0, ibuflen);
             _GLOBALS.storage_length += ipos;
