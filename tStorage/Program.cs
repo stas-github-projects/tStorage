@@ -23,8 +23,9 @@ namespace tStorage
             tstorage.Open("test1");
             //tstorage.Update("system/query_delim", new char[]{'*'});
             /* /
-            tstorage.Create("root/key0", "test", 10);
-            tstorage.Create("root/key1", "test");
+            tstorage.Create("root/s/key0", "test1", 10);
+            tstorage.Create("root/s/key1", "test2", 22);
+            tstorage.Create("root/s/key2", "test3");
             tstorage.Commit();
             //*/
             //tstorage.Create("root/key3", "testov");
@@ -37,7 +38,7 @@ namespace tStorage
             List<dynamic> lst_out = new List<dynamic>(100);
             for (int i = 0; i < 1; i++)
             {
-                lst_out.Add(tstorage.Read(new string[] { "root/key0", "root/key1", "root/key3" }));
+                lst_out.Add(tstorage.ReadWKey(new string[] { "*" }));
             }
 
             //for (int i = 0; i < 100000;i++ )

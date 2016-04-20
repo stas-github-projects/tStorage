@@ -154,6 +154,8 @@ namespace tStorage
                         //parse next
                         l_keypos = ipos; //key pos
                         _active = b_buffer[ipos]; ipos++; //active
+                        //if (_active > 1)
+                        //{ ipos -= 3; _active = b_buffer[ipos]; ipos++; }
                         _data_type = b_buffer[ipos]; ipos++; //data_type
                         _fixed = BitConverter.ToUInt16(b_buffer.GetBytes(ipos, 2), 0); ipos += 2; //fixed_length
                         _created = BitConverter.ToInt64(b_buffer.GetBytes(ipos, 8), 0); ipos += 8; //created
@@ -163,8 +165,8 @@ namespace tStorage
                         _pos = BitConverter.ToInt64(b_buffer.GetBytes(ipos, 8), 0); ipos += 8; //pos
                         _len = BitConverter.ToInt32(b_buffer.GetBytes(ipos, 4), 0); ipos += 4; //len
 
-                        if(_active==0)
-                        { i = i; }
+                        //if(_active==0)
+                        //{ i = i; }
 
                         if (_fixed > 0)
                         { ipos += _fixed; }
@@ -298,6 +300,42 @@ namespace tStorage
             }//for
 
             return lst_out;
+        }
+
+        public Dictionary<string, dynamic> ReadWKey(string key, string[] parameters = null)
+        {
+            return ReadWKey(new string[] { key }, parameters);
+        }
+        public Dictionary<string, dynamic> ReadWKey(string[] key, string[] parameters = null)
+        {
+            Dictionary<string, dynamic> dict_out = new Dictionary<string, dynamic>(10);
+            if (_GLOBALS.storage_open == false) { return dict_out; }
+
+            int i = 0, ilen = 0;
+            long lpos = 0;
+
+            for (i = 0; i < key.Length; i++)
+            {
+                //tstorage_tree.CKeyItem ck = _TREE.SearchForItem(key[i]);
+                //tstorage_tree.CKeyItem ck = _TREE.SearchForItemQueryDelim(key[i], ref dict_out);
+                _TREE.SearchForItemQueryDelim(key[i], ref dict_out);
+                /*
+                if (ck.active == 1) //if key is active
+                {
+                    ilen = ck.value_length;
+                    lpos = ck.value_pos;
+                    if (ilen > 0 && lpos > 0)
+                    {
+                        byte[] b_buffer = new byte[ck.value_length];
+                        _GLOBALS.storage.Position = lpos;
+                        _GLOBALS.storage.Read(b_buffer, 0, ilen);
+                        dict_out.Add(key[i], tStorage_service.returnObjectFromByteArray(ref b_buffer, ck.data_type));
+                    }
+                }//if
+                */
+            }//for
+
+            return dict_out;
         }
 
         //

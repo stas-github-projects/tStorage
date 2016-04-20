@@ -182,6 +182,22 @@ namespace tStorage
                 return keyitem;
             }
 
+            public bool SearchForItemQueryDelim(string sEntry,ref Dictionary<string,dynamic> dict_out)
+            {
+                //CKeyItem keyitem;
+                bool bool_ret = false;
+                g_keyitem_index = -1;
+                sEntry_length = sEntry.Length;
+
+                search_recursive_w_query_delim(sEntry, 0, ref dict_out); //start search
+                if (g_keyitem_index > -1)
+                { bool_ret = true;}// keyitem = lst_keyitems[g_keyitem_index]; }
+                /*else
+                { keyitem = new CKeyItem(); }
+                */
+                return bool_ret;
+            }
+
             public bool SearchForKeyUpdate(string sEntry, object data)
             {
                 bool bool_ret = true;
@@ -381,6 +397,7 @@ namespace tStorage
                             else
                             { oItem.Children.search_recursive(sEntry, wEndIndex + i_delim_length); }
                         }
+
                         //else
                         //{
                         //    wEndIndex = wEndIndex;
@@ -392,6 +409,120 @@ namespace tStorage
                 }
                 else
                 { sEntry_length = 0; }
+            }
+
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void search_recursive_w_query_delim(string sEntry, int wBegIndex, ref Dictionary<string, dynamic> dict_out)
+            {
+                if (sEntry_length == 0) //length cashing
+                { sEntry_length = sEntry.Length; }
+
+                if (wBegIndex < sEntry_length)
+                {
+                    string sKey;
+                    int wEndIndex;
+
+                    wEndIndex = IndexOfEx(sEntry, wBegIndex); //sEntry.IndexOf("/", wBegIndex); --faster replacement
+                    if (wEndIndex == -1)
+                    {
+                        wEndIndex = sEntry_length; // sEntry.Length;
+                    }
+                    //sKey = sEntry.Substring(wBegIndex, wEndIndex - wBegIndex);
+                    if (wEndIndex > wBegIndex) //--faster replacement
+                    //if (!string.IsNullOrEmpty(sKey))
+                    //if(sKey.Length>0)
+                    {
+                        NodeEntry oItem;
+                        sKey = sEntry.Substring(wBegIndex, wEndIndex - wBegIndex);
+
+                        if (sKey.CompareText(_glob.storage_query_delim) == false)
+                        {
+                            if (this.ContainsKey(sKey))
+                            {
+                                oItem = this[sKey];
+                                if (wEndIndex == sEntry_length)
+                                { g_keyitem_index = oItem.i_keyitem_index; return; }
+                                else
+                                { oItem.Children.search_recursive_w_query_delim(sEntry, wEndIndex + i_delim_length, ref dict_out); }
+                            }
+                        }
+                        else //if found chunk == query delim (like *) -- try to find everything after this chunk
+                        {
+                            int iquerydelim = _glob.storage_query_delim.Length, ichunkscount = this.Count, i_sentry_length_old = 0;
+                            int wEndIndex_new = 0;
+                            string stempkey = "", sEntry_new = "";
+                            //for (inewcount = 0; inewcount < ichunkscount; ichunkscount++)
+                            i_sentry_length_old = sEntry_length;
+                            foreach (KeyValuePair<string, NodeEntry> _kv in this)
+                            {
+                                oItem = this[_kv.Key];
+                                sEntry_new = sEntry;
+                                if (wEndIndex > sEntry_length)
+                                {
+                                    stempkey = sEntry.Substring(0, wEndIndex - iquerydelim) + _kv.Key;
+                                    sEntry_new = stempkey + sEntry.Substring(wEndIndex + iquerydelim, sEntry_length);
+                                }
+                                else
+                                { sEntry_new = sEntry.Substring(0, wEndIndex - iquerydelim) + _kv.Key; stempkey = sEntry_new; }
+                                
+                                sEntry_length = sEntry_new.Length;
+                                wEndIndex_new = wEndIndex;
+                                wEndIndex_new += _kv.Key.Length - iquerydelim;
+
+                                if (wEndIndex_new == sEntry_length)
+                                //{ g_keyitem_index = oItem.i_keyitem_index; return; }
+                                {
+                                    g_keyitem_index = oItem.i_keyitem_index;
+                                    GetCKeyInfo(g_keyitem_index, stempkey, ref dict_out);
+                                }
+                                
+                                //try to get t's children
+                                if (oItem.Children.Count > 0)
+                                {
+                                    //wEndIndex_new += _glob.storage_query_delim.Length;
+                                    sEntry_new += (new string(_glob.storage_keys_delim) + new string(_glob.storage_query_delim));
+                                    sEntry_length = sEntry_new.Length;
+                                    oItem.Children.search_recursive_w_query_delim(sEntry_new, wEndIndex_new + _glob.storage_query_delim.Length, ref dict_out);
+                                }
+                                //oItem.Children.search_recursive(sEntry, wEndIndex - _glob.storage_query_delim.Length); // +i_delim_length);
+                            }//for
+                        }
+                        //else
+                        //{
+                        //    wEndIndex = wEndIndex;
+                        //}
+                        // Now add the rest to the new item's children
+                        //oItem.Children.search_recursive(sEntry, wEndIndex + 1);
+                        return;
+                    }
+                }
+                else
+                { sEntry_length = 0; }
+            }
+
+            private void GetCKeyInfo(int g_keyitem_index, string name, ref Dictionary<string,dynamic> dict_output)
+            {
+                if (g_keyitem_index > -1)
+                {
+                    CKeyItem ck = lst_keyitems[g_keyitem_index];
+
+                    int ilen = 0;
+                    long lpos = 0;
+
+                    if (ck.active == 1) //if key is active
+                    {
+                        ilen = ck.value_length;
+                        lpos = ck.value_pos;
+                        if (ilen > 0 && lpos > 0)
+                        {
+                            byte[] b_buffer = new byte[ck.value_length];
+                            _glob.storage.Position = lpos;
+                            _glob.storage.Read(b_buffer, 0, ilen);
+                            dict_output.Add(name, tStorage_service.returnObjectFromByteArray(ref b_buffer, ck.data_type));
+                        }
+                    }//if
+                }//if
             }
 
 

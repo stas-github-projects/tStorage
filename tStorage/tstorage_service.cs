@@ -442,6 +442,26 @@ namespace tStorage
             }
             return sout;
         }
-        
+
+        public static bool CompareText(this string _src, string what)
+        {
+            return CompareText(_src, what.ToCharArray());
+        }
+        public static bool CompareText(this string _src, char[] what)
+        {
+            bool bool_ret = true;
+
+            int ilen = _src.Length, ilen2 = what.Length, ilast = ilen - 1;
+            if (ilen != ilen2) { return false; }
+            for (int i = 0; i < ilen;i++ )
+            {
+                if (_src[i] != what[i]) { return false; }
+                if (ilast == i) { break; }
+                if (_src[i] != what[ilast]) { return false; }
+                ilast--;
+            }//for
+            return bool_ret;
+        }
+
     }
 }
