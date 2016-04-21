@@ -125,6 +125,7 @@ namespace tStorage
 
             if (_GLOBALS.storage_open == false) { return false; }
 
+            tstorage_tree.bool_add_keyitem = true;
             int i = 0, inewpos = 0, ilen = 1, ipos = 0, ikeylen = _GLOBALS.storage_key_length + _GLOBALS.storage_path_max_length, _len = 0;
             long l_pos = 4, _created = 0, _pos = 0, l_keypos = 0;
             byte _active = 0, _data_type = 0, _is_unix = 0;
@@ -141,6 +142,7 @@ namespace tStorage
 
                 //parse
                 //for (i = 0; i < ilen; i++)
+                i++; //page counter
                 ipos = 0;
                 while (ipos < ilen)
                 {
@@ -168,10 +170,18 @@ namespace tStorage
                         //if(_active==0)
                         //{ i = i; }
 
+                        //another check for page was loaded
+                        if (bool_exit == false) //if we're already going to exit - do not do enything
+                        {
+                            if ((ipos + ikeylen) > ilen) //need to load next
+                            { inewpos = (ilen * i) - (ipos - ikeylen); l_pos += (ilen - inewpos); break; }
+                        }
+
                         if (_fixed > 0)
                         { ipos += _fixed; }
                         else
                         { ipos += _len; }
+                                                
 
                         //keyitem
                         if (_active == 1) //(b_buffer[l_keypos] != 0) //record is NOT blocked
@@ -189,6 +199,7 @@ namespace tStorage
                             //add to tree
                             tstorage_tree.sEntry_length = spath.Length;
                             _TREE.AddEntry_indicies(spath, 0, ref ckeyitem);
+                            //tstorage_tree.bool_add_keyitem = false; //avoid i_key_index > -1 when key is not the ended chunk
                         }
                     }//else
                 }//for
@@ -232,11 +243,15 @@ namespace tStorage
                 "system/query_delim"
             };
             List<dynamic> lst_ret = Read(arr_query);
-
-            _GLOBALS.storage_created = lst_ret[0];
-            _GLOBALS.storage_path_max_length = lst_ret[1];
-            _GLOBALS.storage_keys_delim = lst_ret[2];
-            _GLOBALS.storage_query_delim = lst_ret[3];
+            if (lst_ret.Count > 0)
+            {
+                _GLOBALS.storage_created = lst_ret[0];
+                _GLOBALS.storage_path_max_length = lst_ret[1];
+                _GLOBALS.storage_keys_delim = lst_ret[2];
+                _GLOBALS.storage_query_delim = lst_ret[3];
+            }
+            else
+            { return false; }
 
             return bool_ret;
         }
@@ -253,7 +268,7 @@ namespace tStorage
         public bool Create(string key, object data = null, ushort fixed_length = 0)
         {
             bool bool_ret = true;
-
+            if (_GLOBALS.storage_open == false) { return false; }
             if (_GLOBALS.l_virtual_storage_length == 0) { _GLOBALS.l_virtual_storage_length = _GLOBALS.storage.Length; }
             if (key.Length == 0) { return false; } //zero-length key
             _GLOBALS.fixed_length = fixed_length;
@@ -407,10 +422,13 @@ namespace tStorage
             {
                 //string skey = tstorage_tree.CKeysToSave.lst_items[i].Key;
                 tstorage_tree.CKeyItem ck = tstorage_tree.CKeysToSave.GetKeyItem(tstorage_tree.CKeysToSave.lst_items[i].i_keyitem_index);
-                b_key = ck.GetBytes(); //get key bytes
-                b_buffer.InsertBytes(b_key, ipos); ipos += i_key_length;
-                b_buffer.InsertBytes(tstorage_tree.lst_data[tstorage_tree.CKeysToSave.lst_items[i].i_data_index], ipos);
-                ipos += tstorage_tree.lst_data_length[tstorage_tree.CKeysToSave.lst_items[i].i_data_index];
+                if (ck != null)
+                {
+                    b_key = ck.GetBytes(); //get key bytes
+                    b_buffer.InsertBytes(b_key, ipos); ipos += i_key_length;
+                    b_buffer.InsertBytes(tstorage_tree.lst_data[tstorage_tree.CKeysToSave.lst_items[i].i_data_index], ipos);
+                    ipos += tstorage_tree.lst_data_length[tstorage_tree.CKeysToSave.lst_items[i].i_data_index];
+                }
             }//for
 
             //save data

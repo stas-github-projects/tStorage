@@ -11,6 +11,7 @@ namespace tStorage
     {
         private static tStorage.CGlobals _glob;
         internal static int i_data_length = 0;
+        internal static bool bool_add_keyitem = true;
         internal static List<byte[]> lst_data = new List<byte[]>();
         internal static List<int> lst_data_length = new List<int>();
         internal static List<CKeyItem> lst_keyitems = new List<CKeyItem>();
@@ -36,7 +37,10 @@ namespace tStorage
             { lst_items.Add(_key); }
             internal static CKeyItem GetKeyItem(int index)
             {
-                return lst_keyitems[index];
+                if(index>-1)
+                {return lst_keyitems[index];
+                }
+                else { return null; }
             }
             internal static void Clear()
             { lst_items.Clear(); }
@@ -110,10 +114,16 @@ namespace tStorage
         public class NodeEntry
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public NodeEntry(bool bool_add_data_index = false)
+            public NodeEntry(bool bool_add_data_index = false)//, bool bool_add_keyitem = false)
             {
                 this.Children = new NodeEntryCollection();
-                this.i_keyitem_index = getKeyitemIndex();
+
+                //if (bool_add_keyitem) //add keyitem
+                if (tstorage_tree.bool_add_keyitem == true)
+                { this.i_keyitem_index = getKeyitemIndex(); }
+                else
+                { this.i_keyitem_index = -1; }
+
                 if (bool_add_data_index) //add data
                 { this.i_data_index = getDataIndex(); }
                 else
@@ -439,12 +449,16 @@ namespace tStorage
                         if (this.ContainsKey(sKey))
                         {
                             oItem = this[sKey];
-                            if (wEndIndex == sEntry_length)
+
+                            string strisquery = sEntry.Substring(wEndIndex + _glob.storage_keys_delim.Length, _glob.storage_query_delim.Length);
+
+                            if (wEndIndex == sEntry_length || strisquery==new string(_glob.storage_query_delim))
                             {
                                 string ggg = sEntry.Substring(0, wEndIndex);
                                 g_keyitem_index = oItem.i_keyitem_index; GetCKeyInfo(g_keyitem_index, ggg, ref dict_out);
                             }
-                            else
+                            //else
+                            if (strisquery == new string(_glob.storage_query_delim))
                             { oItem.Children.search_recursive_w_query_delim(sEntry, wEndIndex + i_delim_length, ref dict_out); }
                         }
                         else //if found chunk == query delim (like *) -- try to find everything after this chunk
@@ -491,18 +505,21 @@ namespace tStorage
                     int ilen = 0;
                     long lpos = 0;
 
-                    if (ck.active == 1) //if key is active
+                    if (ck.s_full_path.Equals(name))
                     {
-                        ilen = ck.value_length;
-                        lpos = ck.value_pos;
-                        if (ilen > 0 && lpos > 0)
+                        if (ck.active == 1) //if key is active
                         {
-                            byte[] b_buffer = new byte[ck.value_length];
-                            _glob.storage.Position = lpos;
-                            _glob.storage.Read(b_buffer, 0, ilen);
-                            dict_output.Add(name, tStorage_service.returnObjectFromByteArray(ref b_buffer, ck.data_type));
-                        }
-                    }//if
+                            ilen = ck.value_length;
+                            lpos = ck.value_pos;
+                            if (ilen > 0 && lpos > 0)
+                            {
+                                byte[] b_buffer = new byte[ck.value_length];
+                                _glob.storage.Position = lpos;
+                                _glob.storage.Read(b_buffer, 0, ilen);
+                                dict_output.Add(name, tStorage_service.returnObjectFromByteArray(ref b_buffer, ck.data_type));
+                            }
+                        }//if
+                    }//if equal
                 }//if
             }
 
@@ -558,6 +575,7 @@ namespace tStorage
                                 //keyitem.Fill(sEntry, data_type, fixed_length, i_datalength);
                                 
                                 lst_keyitems.Add(keyitem);
+                                tstorage_tree.bool_add_keyitem = true;
                                 oItem = new NodeEntry(true);
                                 //CKeysToSave.Add(oItem);
                             }
@@ -565,6 +583,7 @@ namespace tStorage
                             {
                                 //keyitem.Fill("", data_type, fixed_length);
                                 //lst_keyitems.Add(keyitem);
+                                tstorage_tree.bool_add_keyitem = false;
                                 oItem = new NodeEntry();
                             }
 
