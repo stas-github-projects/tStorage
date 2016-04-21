@@ -415,12 +415,12 @@ namespace tStorage
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void search_recursive_w_query_delim(string sEntry, int wBegIndex, ref Dictionary<string, dynamic> dict_out)
             {
-                if (sEntry_length == 0) //length cashing
+                //if (sEntry_length == 0) //length cashing
                 { sEntry_length = sEntry.Length; }
 
                 if (wBegIndex < sEntry_length)
                 {
-                    string sKey;
+                    string sKey, sEntry_new2;
                     int wEndIndex;
 
                     wEndIndex = IndexOfEx(sEntry, wBegIndex); //sEntry.IndexOf("/", wBegIndex); --faster replacement
@@ -436,69 +436,50 @@ namespace tStorage
                         NodeEntry oItem;
                         sKey = sEntry.Substring(wBegIndex, wEndIndex - wBegIndex);
 
-                        if (sKey.CompareText(_glob.storage_query_delim) == false)
+                        if (this.ContainsKey(sKey))
                         {
-                            if (this.ContainsKey(sKey))
+                            oItem = this[sKey];
+                            if (wEndIndex == sEntry_length)
                             {
-                                oItem = this[sKey];
-                                if (wEndIndex == sEntry_length)
-                                { g_keyitem_index = oItem.i_keyitem_index; return; }
-                                else
-                                { oItem.Children.search_recursive_w_query_delim(sEntry, wEndIndex + i_delim_length, ref dict_out); }
+                                string ggg = sEntry.Substring(0, wEndIndex);
+                                g_keyitem_index = oItem.i_keyitem_index; GetCKeyInfo(g_keyitem_index, ggg, ref dict_out);
                             }
+                            else
+                            { oItem.Children.search_recursive_w_query_delim(sEntry, wEndIndex + i_delim_length, ref dict_out); }
                         }
                         else //if found chunk == query delim (like *) -- try to find everything after this chunk
                         {
-                            int iquerydelim = _glob.storage_query_delim.Length, ichunkscount = this.Count, i_sentry_length_old = 0;
-                            int wEndIndex_new = 0;
-                            string stempkey = "", sEntry_new = "";
-                            //for (inewcount = 0; inewcount < ichunkscount; ichunkscount++)
-                            i_sentry_length_old = sEntry_length;
-                            foreach (KeyValuePair<string, NodeEntry> _kv in this)
+                            foreach (NodeEntry _kv in this.Values)
                             {
-                                oItem = this[_kv.Key];
-                                sEntry_new = sEntry;
-                                if (wEndIndex > sEntry_length)
-                                {
-                                    stempkey = sEntry.Substring(0, wEndIndex - iquerydelim) + _kv.Key;
-                                    sEntry_new = stempkey + sEntry.Substring(wEndIndex + iquerydelim, sEntry_length);
-                                }
-                                else
-                                { sEntry_new = sEntry.Substring(0, wEndIndex - iquerydelim) + _kv.Key; stempkey = sEntry_new; }
-                                
-                                sEntry_length = sEntry_new.Length;
-                                wEndIndex_new = wEndIndex;
-                                wEndIndex_new += _kv.Key.Length - iquerydelim;
 
-                                if (wEndIndex_new == sEntry_length)
-                                //{ g_keyitem_index = oItem.i_keyitem_index; return; }
-                                {
-                                    g_keyitem_index = oItem.i_keyitem_index;
-                                    GetCKeyInfo(g_keyitem_index, stempkey, ref dict_out);
-                                }
-                                
-                                //try to get t's children
-                                if (oItem.Children.Count > 0)
-                                {
-                                    //wEndIndex_new += _glob.storage_query_delim.Length;
-                                    sEntry_new += (new string(_glob.storage_keys_delim) + new string(_glob.storage_query_delim));
-                                    sEntry_length = sEntry_new.Length;
-                                    oItem.Children.search_recursive_w_query_delim(sEntry_new, wEndIndex_new + _glob.storage_query_delim.Length, ref dict_out);
-                                }
-                                //oItem.Children.search_recursive(sEntry, wEndIndex - _glob.storage_query_delim.Length); // +i_delim_length);
-                            }//for
+                                oItem = _kv;
+                                g_keyitem_index = oItem.i_keyitem_index;
+                                sEntry_new2 = ReplaceFirst(sEntry, new string(_glob.storage_query_delim), oItem.Key);
+
+                                //string ggg = sEntry_new2.Substring(0, wEndIndex);
+                                g_keyitem_index = oItem.i_keyitem_index; GetCKeyInfo(g_keyitem_index, sEntry_new2, ref dict_out);
+
+                                //sEntry_length
+                                oItem.Children.search_recursive_w_query_delim(sEntry_new2 + new string(_glob.storage_keys_delim) + new string(_glob.storage_query_delim),
+                                    wEndIndex + oItem.Key.Length, ref dict_out);
+                            }//foreach
                         }
-                        //else
-                        //{
-                        //    wEndIndex = wEndIndex;
-                        //}
-                        // Now add the rest to the new item's children
-                        //oItem.Children.search_recursive(sEntry, wEndIndex + 1);
                         return;
                     }
                 }
                 else
                 { sEntry_length = 0; }
+            }
+
+            //replace only first occurence
+            public string ReplaceFirst(string text, string search, string replace)
+            {
+                int pos = text.IndexOf(search);
+                if (pos < 0)
+                {
+                    return text;
+                }
+                return text.Substring(0, pos) + replace + text.Substring(pos + search.Length);
             }
 
             private void GetCKeyInfo(int g_keyitem_index, string name, ref Dictionary<string,dynamic> dict_output)

@@ -197,6 +197,11 @@ namespace tStorage
 
             }//while
 
+            //clear
+            tstorage_tree.CKeysToSave.Clear();
+            tstorage_tree.Save_Clear();
+            _GLOBALS.l_virtual_storage_length = 0;
+            //return value
             return bool_ret;
         }
 
